@@ -14,7 +14,24 @@ from sqlalchemy import create_engine
 
 app = Flask(__name__)
 
+
 def tokenize(text):
+    """
+    Tokenizes the input text by performing the following steps:
+    1. Splits the text into individual words.
+    2. Lemmatizes each word to its base form.
+    3. Converts each word to lowercase and removes leading/trailing whitespaces.
+
+    Args:
+        text (str): The input text to be tokenized.
+
+    Returns:
+        list: A list of clean tokens.
+
+    Example:
+        >>> tokenize("Hello, world!")
+        ['hello', 'world']
+    """
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 

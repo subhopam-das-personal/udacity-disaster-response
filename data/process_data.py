@@ -6,15 +6,34 @@ import os
 
 
 def load_data(messages_filepath, categories_filepath):
+    """
+    Load and merge the messages and categories data from the given filepaths.
+
+    Args:
+        messages_filepath (str): The filepath of the messages data file.
+        categories_filepath (str): The filepath of the categories data file.
+
+    Returns:
+        pandas.DataFrame: The merged dataframe containing messages and categories data.
+    """
     messages = pd.read_csv(messages_filepath)
-    #print(messages.head())
     categories = pd.read_csv(categories_filepath)
-    #print(categories.head())
     df = pd.merge(messages, categories, on='id')
     return df
 
 
 def clean_data(df):
+    """
+    Clean the data by splitting the 'categories' column into individual category columns,
+    converting the values to numeric, and dropping duplicates.
+
+    Args:
+        df (pandas.DataFrame): The input dataframe containing the 'categories' column.
+
+    Returns:
+        pandas.DataFrame: The cleaned dataframe with individual category columns.
+
+    """
     print(df.head())
     # create a dataframe of the 36 individual category columns
     categories = df['categories'].str.split(';', expand=True)
@@ -40,14 +59,25 @@ def clean_data(df):
     # concatenate the original dataframe with the new `categories` dataframe
     df = pd.concat([df, categories], axis=1)
     df = df.drop_duplicates()
+    print(f'Number of Duplicates:{df.duplicated().sum()}')
     return df
 
 
 def save_data(df, database_filename):
+    """
+    Save the given DataFrame to a SQLite database.
+
+    Args:
+        df (pandas.DataFrame): The DataFrame to be saved.
+        database_filename (str): The filename of the SQLite database.
+
+    Returns:
+        None
+    """
     print(f"database_filename:{database_filename}")
     engine = create_engine('sqlite:///' + os.path.join(os.getcwd(), database_filename))
 
-    df.to_sql('t_diaster_data', engine, index=False)
+    df.to_sql('t_diaster_data', engine, index=False, if_exists='replace')
 
 
 def main():
