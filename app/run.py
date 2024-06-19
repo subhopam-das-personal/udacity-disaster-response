@@ -8,30 +8,15 @@ from nltk.tokenize import word_tokenize
 from flask import Flask
 from flask import render_template, request, jsonify
 from plotly.graph_objs import Bar
-from sklearn.externals import joblib
+import sklearn.externals
+import joblib
 from sqlalchemy import create_engine
-
+import warnings
+warnings.filterwarnings("ignore")
 
 app = Flask(__name__)
 
-
 def tokenize(text):
-    """
-    Tokenizes the input text by performing the following steps:
-    1. Splits the text into individual words.
-    2. Lemmatizes each word to its base form.
-    3. Converts each word to lowercase and removes leading/trailing whitespaces.
-
-    Args:
-        text (str): The input text to be tokenized.
-
-    Returns:
-        list: A list of clean tokens.
-
-    Example:
-        >>> tokenize("Hello, world!")
-        ['hello', 'world']
-    """
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
@@ -44,7 +29,7 @@ def tokenize(text):
 
 # load data
 engine = create_engine('sqlite:///../data/DisasterResponse.db')
-df = pd.read_sql_table('t_diaster_data', engine)
+df = pd.read_sql_table('t_disaster_data', engine)
 
 # load model
 model = joblib.load("../models/classifier.pkl")
@@ -59,6 +44,16 @@ def index():
     # TODO: Below is an example - modify to extract data for your own visuals
     genre_counts = df.groupby('genre').count()['message']
     genre_names = list(genre_counts.index)
+    
+    # category data for plotting
+    categories =  df[df.columns[4:]]
+    cate_counts = (categories.mean()*categories.shape[0]).sort_values(ascending=False)
+    cate_names = list(cate_counts.index)
+    
+    # Plotting of Categories Distribution in Direct Genre
+    direct_cate = df[df.genre == 'direct']
+    direct_cate_counts = (direct_cate.mean()*direct_cate.shape[0]).sort_values(ascending=False)
+    direct_cate_names = list(direct_cate_counts.index)
     
     # create visuals
     # TODO: Below is an example - modify to create your own visuals
@@ -78,6 +73,45 @@ def index():
                 },
                 'xaxis': {
                     'title': "Genre"
+                }
+            }
+        },
+        # category plotting (Visualization#2)
+        {
+            'data': [
+                Bar(
+                    x=cate_names,
+                    y=cate_counts
+                )
+            ],
+
+            'layout': {
+                'title': 'Distribution of Message Categories',
+                'yaxis': {
+                    'title': "Count"
+                },
+                'xaxis': {
+                    'title': "Categories"
+                }
+            }
+            
+        },
+        # Categories Distribution in Direct Genre (Visualization#3)
+        {
+            'data': [
+                Bar(
+                    x=direct_cate_names,
+                    y=direct_cate_counts
+                )
+            ],
+
+            'layout': {
+                'title': 'Categories Distribution in Direct Genre',
+                'yaxis': {
+                    'title': "Count"
+                },
+                'xaxis': {
+                    'title': "Categories in Direct Genre"
                 }
             }
         }
@@ -110,7 +144,8 @@ def go():
 
 
 def main():
-    app.run(host='0.0.0.0', port=3000, debug=True)
+    
+   app.run(host='0.0.0.0', port=3000, debug=True)
 
 
 if __name__ == '__main__':

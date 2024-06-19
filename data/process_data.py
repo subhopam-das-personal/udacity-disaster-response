@@ -77,7 +77,7 @@ def save_data(df, database_filename):
     print(f"database_filename:{database_filename}")
     engine = create_engine('sqlite:///' + os.path.join(os.getcwd(), database_filename))
 
-    df.to_sql('t_diaster_data', engine, index=False, if_exists='replace')
+    df.to_sql('t_disaster_data', engine, index=False, if_exists='replace')
 
 
 def main():
