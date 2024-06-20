@@ -1,4 +1,9 @@
 # Disaster Response Pipeline Project
+In this project, the data engineering skills will be applied to analyze disaster data from Appen (formerly Figure 8) to build a model for an API that classifies disaster messages.
+
+In the Project Workspace, a data set containing real messages sent during disaster events will be found. A machine learning pipeline will be created to categorize these events so that the messages can be sent to an appropriate disaster relief agency.
+
+A project will be created that includes a web app where an emergency worker can input a new message and get classification results in several categories. The web app will also display visualizations of the data. This project will showcase your software skills, including your ability to create basic data pipelines and write clean, organized code.
 
 ### Instructions:
 1. Run the following commands in the project's root directory to set up your database and model.
