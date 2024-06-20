@@ -1,86 +1,88 @@
+# import necessary libraries
 import sys
+import numpy as np
 import pandas as pd
-import sqlalchemy 
 from sqlalchemy import create_engine
-import os
 
 
+# load data 
 def load_data(messages_filepath, categories_filepath):
     """
-    Load and merge the messages and categories data from the given filepaths.
+    Load and merge two CSV files containing messages and categories data.
 
-    Args:
-        messages_filepath (str): The filepath of the messages data file.
-        categories_filepath (str): The filepath of the categories data file.
+    Parameters:
+    messages_filepath (str): The file path of the messages CSV file.
+    categories_filepath (str): The file path of the categories CSV file.
 
     Returns:
-        pandas.DataFrame: The merged dataframe containing messages and categories data.
+    pandas.DataFrame: A merged DataFrame containing messages and categories data.
     """
+    # load two csv files
     messages = pd.read_csv(messages_filepath)
     categories = pd.read_csv(categories_filepath)
-    df = pd.merge(messages, categories, on='id')
-    return df
+    return pd.merge(messages, categories, on='id', how='inner')
 
 
+# data pre-processing
 def clean_data(df):
     """
-    Clean the data by splitting the 'categories' column into individual category columns,
-    converting the values to numeric, and dropping duplicates.
+    Clean the input dataframe by performing the following steps:
+    1. Split the 'categories' column into separate columns.
+    2. Rename the new columns based on the first row values.
+    3. Convert the category values to numeric (0 or 1).
+    4. Drop the original 'categories' column.
+    5. Concatenate the cleaned categories columns with the original dataframe.
+    6. Remove duplicate rows.
 
-    Args:
-        df (pandas.DataFrame): The input dataframe containing the 'categories' column.
+    Parameters:
+    df (pandas.DataFrame): The input dataframe to be cleaned.
 
     Returns:
-        pandas.DataFrame: The cleaned dataframe with individual category columns.
-
+    pandas.DataFrame: The cleaned dataframe.
     """
-    print(df.head())
-    # create a dataframe of the 36 individual category columns
-    categories = df['categories'].str.split(';', expand=True)
+    categories = df["categories"].str.split(';', expand=True)
     # select the first row of the categories dataframe
-    row = categories.iloc[0]
-    
+    row = categories[0:1]
     # use this row to extract a list of new column names for categories.
-    # one way is to apply a lambda function that takes everything 
-    # up to the second to last character of each string with slicing
-    category_colnames = row.tolist()
-    print(f"category_columns:{category_colnames}")
-    # rename the columns of `categories`
-    categories.columns = category_colnames
+    category_col_names = row.apply(lambda x: x.str[:-2]).values.tolist()
+    # rename the columns of `categories` dataframe
+    categories.columns = category_col_names
+
+    # Convert category values to just numbers 0 or 1.
     for column in categories:
         # set each value to be the last character of the string
         categories[column] = categories[column].str[-1]
-
-        # convert column from string to numeric
+        # change column data type from string to numeric
         categories[column] = categories[column].astype(int)
-    # drop the original categories column from `df`
 
-    df = df.drop('categories', axis=1)
+    # drop the original categories column from `df`
+    df.drop('categories', axis=1, inplace=True)
     # concatenate the original dataframe with the new `categories` dataframe
     df = pd.concat([df, categories], axis=1)
+    # drop duplicates
     df = df.drop_duplicates()
-    print(f'Number of Duplicates:{df.duplicated().sum()}')
     return df
 
 
+# save cleaned data  
 def save_data(df, database_filename):
     """
-    Save the given DataFrame to a SQLite database.
+    Save a dataframe to a SQLite database.
 
-    Args:
-        df (pandas.DataFrame): The DataFrame to be saved.
-        database_filename (str): The filename of the SQLite database.
+    Parameters:
+    df (pandas.DataFrame): The dataframe to be saved.
+    database_filename (str): The filename of the SQLite database.
 
     Returns:
-        None
+    None
     """
-    print(f"database_filename:{database_filename}")
-    engine = create_engine('sqlite:///' + os.path.join(os.getcwd(), database_filename))
-
-    df.to_sql('t_disaster_data', engine, index=False, if_exists='replace')
+    print('Save {} to {} database: '.format(df, database_filename))
+    engine = create_engine('sqlite:///{}'.format(database_filename))
+    df.to_sql('DisasterResponse', engine, if_exists='replace', index=False)
 
 
 def main():
+  
     if len(sys.argv) == 4:
 
         messages_filepath, categories_filepath, database_filepath = sys.argv[1:]

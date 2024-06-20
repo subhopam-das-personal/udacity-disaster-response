@@ -1,61 +1,50 @@
+# Disaster Response Pipeline
+# Author: Sidharth Kumar Mohanty
+
+#import necessary libraries
 import sys
-# import necessary libraries 
-from sqlalchemy import create_engine
 import nltk
-nltk.download(['punkt', 'wordnet'])
-
 import re
-import numpy as np
+nltk.download(['punkt', 'wordnet'])
+import warnings
+import pickle
 import pandas as pd
-
+from sqlalchemy import create_engine
 from nltk.tokenize import word_tokenize
 from nltk.stem import WordNetLemmatizer
-from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
-from sklearn.metrics import confusion_matrix, classification_report
-import os
-from sklearn.pipeline import Pipeline
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
 from sklearn.multioutput import MultiOutputClassifier
-from sklearn.model_selection import GridSearchCV
-import pickle
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split, GridSearchCV
+from sklearn.feature_extraction.text import CountVectorizer, TfidfTransformer
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
+from sklearn.multioutput import MultiOutputClassifier
+from sklearn.ensemble import RandomForestClassifier
 
-import warnings
-warnings.filterwarnings('ignore')
 
 def load_data(database_filepath):
     """
-    Load data from a SQLite database.
-
+    Load data from a SQLite database and return the features, labels, and category names.
+    
     Parameters:
-    database_filepath (str): The file path of the SQLite database.
-
+        database_filepath (str): The file path of the SQLite database.
+        
     Returns:
-    X (pandas.Series): The input messages.
-    Y (pandas.DataFrame): The target categories.
-    category_names (list): The list of category names.
+        X (pandas.Series): The features (messages) as a pandas Series.
+        y (pandas.DataFrame): The labels (categories) as a pandas DataFrame.
+        category_names (list): The names of the categories.
     """
-    print(f"database_filename:{database_filepath}")
-    engine = create_engine('sqlite:///' + os.path.join(os.getcwd(), database_filepath))
-    df = pd.read_sql_table('t_diaster_data', engine)
+    engine = create_engine('sqlite:///'+database_filepath)
+    df = pd.read_sql_table('DisasterResponse', engine)
     X = df.message
-    Y = df.iloc[:,4:]
-    row = df.iloc[0]
-
-    # use this row to extract a list of new column names for categories.
-    # one way is to apply a lambda function that takes everything 
-    # up to the second to last character of each string with slicing
-    category_names = row.tolist()
-    return X, Y, category_names
+    y = df[df.columns[4:]]
+    category_names = y.columns
+    return X, y, category_names
 
 
 def tokenize(text):
     """
-    Tokenizes the input text by performing the following steps:
-    1. Detects and replaces URLs with "urlplaceholder".
-    2. Tokenizes the text into individual words.
-    3. Lemmatizes each word to its base form.
-    4. Converts each word to lowercase and removes leading/trailing whitespaces.
+    Tokenizes the input text by removing URLs, converting text messages into tokens,
+    and lemmatizing the tokens.
 
     Args:
         text (str): The input text to be tokenized.
@@ -63,17 +52,14 @@ def tokenize(text):
     Returns:
         list: A list of clean tokens.
 
-    Example:
-        >>> tokenize("This is an example sentence.")
-        ['this', 'is', 'an', 'example', 'sentence']
     """
+    # remove URL present in the messages
     url_regex = 'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
-    # detect all URL present in the messages
     detected_urls = re.findall(url_regex, text)
-    # replace URL with "urlplaceholder"
     for url in detected_urls:
         text = text.replace(url, "urlplaceholder")
 
+    # convert text messages into tokens
     tokens = word_tokenize(text)
     lemmatizer = WordNetLemmatizer()
 
@@ -82,54 +68,58 @@ def tokenize(text):
         clean_tok = lemmatizer.lemmatize(tok).lower().strip()
         clean_tokens.append(clean_tok)
 
-    return clean_tokens
+    return clean_tokens    
 
 
 def build_model():
     """
-    Build and return a machine learning model pipeline for classifying disaster response messages.
-
+    Build and return a machine learning model for classifying disaster response messages.
+    
     Returns:
-    cv (GridSearchCV): A GridSearchCV object that performs hyperparameter tuning on the pipeline.
+    model (GridSearchCV): A machine learning model that has been optimized using grid search.
     """
-
+    
     pipeline = Pipeline([
-        ('cvect', CountVectorizer(tokenizer=tokenize)),
+        ('vect', CountVectorizer(tokenizer=tokenize)),
         ('tfidf', TfidfTransformer()),
-        ('clf', MultiOutputClassifier(RandomForestClassifier(n_jobs=-1)))
+        ('clf', MultiOutputClassifier(RandomForestClassifier()))
     ])
-
+    
     parameters = {
-        'clf__estimator__n_estimators': [100, 150],
-        'clf__estimator__min_samples_split': [2, 4],
+        'clf__estimator__n_estimators': [8, 15],
+        'clf__estimator__min_samples_split': [2],
+    
     }
+    model = GridSearchCV(pipeline, param_grid=parameters, n_jobs=-1, verbose=2, cv=3)
+    return model
 
-    cv = GridSearchCV(pipeline, param_grid=parameters, verbose=2)
-    return cv
 
-
-def evaluate_model(model, X_test, Y_test, category_names):
+def evaluate_model(model, X_test, y_test, category_names):
     """
     Evaluate the performance of a machine learning model on the test data.
 
     Parameters:
-    model (object): The trained machine learning model.
-    X_test (array-like): The input features for the test data.
-    Y_test (array-like): The true labels for the test data.
-    category_names (list): The list of category names.
+        model (object): The trained machine learning model.
+        X_test (array-like): The test data features.
+        y_test (array-like): The true labels for the test data.
+        category_names (list): The list of category names.
 
     Returns:
-    None
+        None
     """
-    Y_pred = model.predict(X_test)
-    report = classification_report(Y_test, Y_pred, target_names=category_names)
 
-    # Print the classification report
-    print("Classification Report:\n", report)
+    y_pred = model.predict(X_test)
+    y_pred[123].shape
 
+    """ for i in range(36):
+        print("=======================",y_test.columns[i],"======================")
+        print(classification_report(y_test.iloc[:,i], y_pred[:,i])) """
+    for i in range(y_pred.shape[1]):
+        print("=======================",y_test.columns[i],"======================")
+        print(classification_report(y_test.iloc[:,i], y_pred[:,i]))
 
 def save_model(model, model_filepath):
-    """
+    '''
     Save the trained model to a file.
 
     Parameters:
@@ -138,7 +128,7 @@ def save_model(model, model_filepath):
 
     Returns:
     None
-    """
+    '''
     with open(model_filepath, 'wb') as file:
         pickle.dump(model, file)
 
@@ -147,17 +137,17 @@ def main():
     if len(sys.argv) == 3:
         database_filepath, model_filepath = sys.argv[1:]
         print('Loading data...\n    DATABASE: {}'.format(database_filepath))
-        X, Y, category_names = load_data(database_filepath)
-        X_train, X_test, Y_train, Y_test = train_test_split(X, Y, test_size=0.2)
+        X, y, category_names = load_data(database_filepath)
+        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2)
         
         print('Building model...')
         model = build_model()
         
         print('Training model...')
-        model.fit(X_train, Y_train)
+        model.fit(X_train, y_train)
         
         print('Evaluating model...')
-        evaluate_model(model, X_test, Y_test, category_names)
+        evaluate_model(model, X_test, y_test, category_names)
 
         print('Saving model...\n    MODEL: {}'.format(model_filepath))
         save_model(model, model_filepath)
