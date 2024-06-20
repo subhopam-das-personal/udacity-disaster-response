@@ -48,19 +48,28 @@ def clean_data(df):
     # rename the columns of `categories` dataframe
     categories.columns = category_col_names
 
-    # Convert category values to just numbers 0 or 1.
+   # Convert category values to just numbers 0 or 1.
     for column in categories:
         # set each value to be the last character of the string
         categories[column] = categories[column].str[-1]
         # change column data type from string to numeric
         categories[column] = categories[column].astype(int)
 
+    # Filter out multiclass variables
+    categories = categories[(categories.isin([0, 1])).all(axis=1)]
+
     # drop the original categories column from `df`
     df.drop('categories', axis=1, inplace=True)
+
     # concatenate the original dataframe with the new `categories` dataframe
     df = pd.concat([df, categories], axis=1)
+
     # drop duplicates
     df = df.drop_duplicates()
+
+    # Filter out rows in df where categories have multiclass variables
+    df = df[(df[categories.columns].isin([0, 1])).all(axis=1)]
+
     return df
 
 
@@ -76,6 +85,7 @@ def save_data(df, database_filename):
     Returns:
     None
     """
+    print(df.iloc[:,4].unique())
     print('Save {} to {} database: '.format(df, database_filename))
     engine = create_engine('sqlite:///{}'.format(database_filename))
     df.to_sql('DisasterResponse', engine, if_exists='replace', index=False)

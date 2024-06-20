@@ -1,6 +1,0 @@
-*
-!**/*.py
-!README.md
-!.gitignore
-!LICENSE
-!*.pkl
